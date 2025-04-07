@@ -6,6 +6,7 @@ from markdown_formatting import (
     markdown_to_blocks,
     block_to_block_type,
     markdown_to_html_node,
+    extract_title,
 )
 
 
@@ -148,14 +149,30 @@ class testMarkDownFormatting(unittest.TestCase):
         2. a proper list
         3. With inline
 
-        - Here is another list, but this one is
-        - unordered.
+        - Here is another list, but this one
+        - [has a link](https://localhost:8080)
         """
         node = markdown_to_html_node(md)
         html = node.to_html()
         self.assertEqual(
             html,
-            "<div><ol><li>This is</li><li>a proper list</li><li>With inline</li></ol><ul><li>Here is another list, but this one is</li><li>unordered.</li></ul></div>",
+            '<div><ol><li>This is</li><li>a proper list</li><li>With inline</li></ol><ul><li>Here is another list, but this one</li><li><a href="https://localhost:8080">has a link</a></li></ul></div>',
+        )
+
+    def test_block_quotes(self):
+        md = """
+        > This includes
+        >    
+        > Some block quotes
+
+        """
+        node = markdown_to_html_node(md)
+        print(node)
+        html = node.to_html()
+        print(html)
+        self.assertEqual(
+            html,
+            "<div><blockquote>This includes Some block quotes</blockquote></div>",
         )
 
     def test_heading(self):
@@ -172,6 +189,26 @@ class testMarkDownFormatting(unittest.TestCase):
             html,
             "<div><h1>This is first heading</h1><h2>This is second heading</h2><h5>This is even more heading</h5></div>",
         )
+
+    def test_extract_title(self):
+        md = """
+        # This is a file with a header
+
+        and more text later
+        etc..
+        """
+        title = extract_title(md)
+        self.assertEqual(title, "This is a file with a header")
+
+        md2 = "# Single line header"
+        title2 = extract_title(md2)
+        self.assertEqual(title2, "Single line header")
+
+        md3 = """
+        This is a markdown without a proper header
+        """
+        with self.assertRaises(Exception):
+            title3 = extract_title(md3)
 
 
 if __name__ == "__main__":

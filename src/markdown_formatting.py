@@ -23,7 +23,7 @@ def extract_markdown_images(text):
 
 # This function uses a regexpr to find links in markdown text
 def extract_markdown_links(text):
-    return re.findall(r"[^!]\[(.*?)\]\((.*?)\)", text)
+    return re.findall(r"(?<!!)\[(.*?)\]\((.*?)\)", text)
 
 
 # This function takes a raw markdown string and returns the document in a list of blocks.
@@ -43,7 +43,7 @@ def block_to_block_type(block):
         block.split("\n")[0].strip() == "```" and block.split("\n")[-1].strip() == "```"
     ):
         return BlockType.CODE
-    elif all(re.match(r"^> ", line) for line in block.splitlines()):
+    elif all(re.match(r"^>($|\s)", line) for line in block.splitlines()):
         return BlockType.QUOTE
     elif all(re.match(r"^- ", line) for line in block.splitlines()):
         return BlockType.UNORDERED_LIST
@@ -113,8 +113,11 @@ def block_rows_to_parents(block_rows, child_tag, parent_tag):
     is_paragraph = True if parent_tag == "p" else False
     if is_paragraph:
         block_rows = [" ".join(block_rows)]
+    if parent_tag == "blockquote":
+        block_rows = ["> " + "".join(block_rows).replace(">", "").strip()]
     for row in block_rows:
         row_children = text_to_children(row, is_paragraph)
+
         # If there is no child tag, don't create a nested ParentNode
         if not child_tag:
             block_children.extend(row_children)
@@ -134,3 +137,11 @@ def text_to_children(text, is_paragraph):
     for node in text_nodes:
         children.append(text_node_to_html_node(node))
     return children
+
+
+# Extracts the h1 header text
+def extract_title(markdown):
+    header_row = next(line for line in markdown.split("\n") if line).strip()
+    if not header_row.split(" ")[0] == "#":
+        raise Exception("markdown text does not start with a header")
+    return " ".join(header_row.split(" ")[1:])
