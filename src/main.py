@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, shutil
+import os, sys, shutil
 from markdown_formatting import markdown_to_html_node, extract_title
 
 
@@ -31,25 +31,25 @@ def remove_files(path):
 
 
 # This function copies files recursively from source destination to target destination
-def copy_files(src, dest, depth=0):
-    # Shared path between source and dest, starts at "."
-    if not depth:
-        shared_path = ""
-    else:
-        shared_path = os.path.join(*src.split("/")[-depth:])
-    path_list = os.listdir(src)
-    for entry in path_list:
-        entry_path = os.path.join(src, entry)
+def copy_files(src, dest):
+    if not os.path.exists(dest):
+        os.mkdir(dest)
+
+    for item in os.listdir(src):
+        src_path = os.path.join(src, item)
+        dest_path = os.path.join(dest, item)
 
         # If the entry is a directory, copy it and copy the files/dirs inside recursively
-        if os.path.isdir(entry_path):
-            os.mkdir(os.path.join(dest, entry))
-            copy_files(entry_path, os.path.join(dest, shared_path), depth + 1)
+        if os.path.isdir(src_path):
+            if not os.path.exists(dest_path):
+                os.mkdir(dest_path)
+            copy_files(src_path, dest_path)
         else:
-            shutil.copy(entry_path, os.path.join(dest, shared_path))
+            # for a file, just copy
+            shutil.copy(src_path, dest_path)
 
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     with open(from_path) as f:
         md = f.read()
@@ -59,26 +59,35 @@ def generate_page(from_path, template_path, dest_path):
     content = node.to_html()
     title = extract_title(md)
     html = html.replace("{{ Title }}", title).replace("{{ Content }}", content)
+    # Replace basepath from href and src
+    html = html.replace('href="/', f'href="{basepath}').replace(
+        'src="/', f'src="{basepath}'
+    )
     with open(dest_path, "w") as f:
         f.write(html)
 
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     for item in os.listdir(dir_path_content):
         item_path = os.path.join(dir_path_content, item)
         if os.path.isdir(item_path):
             target_path = os.path.join(dest_dir_path, item)
-            os.mkdir(target_path)
-            generate_pages_recursive(item_path, template_path, target_path)
+            if not os.path.exists(target_path):
+                os.mkdir(target_path)
+            generate_pages_recursive(item_path, template_path, target_path, basepath)
         else:
             target_name = ".".join(item.split(".")[:-1]) + ".html"
             target_path = os.path.join(dest_dir_path, target_name)
-            generate_page(item_path, template_path, target_path)
+            generate_page(item_path, template_path, target_path, basepath)
 
 
 def main():
-    clean_and_copy_directory("static", "public")
-    generate_pages_recursive("content", "template.html", "public")
+    basepath = "/"
+    if len(sys.argv) > 1:
+        basepath = sys.argv[1]
+
+    clean_and_copy_directory("static", "docs")
+    generate_pages_recursive("content", "template.html", "docs", basepath)
 
 
 if __name__ == "__main__":
